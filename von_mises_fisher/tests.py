@@ -3,6 +3,7 @@ import numpy as np
 from von_mises_fisher.von_mises_fisher import vmf_pdf
 from math import cos, sin, acos, asin, sqrt, pi
 from matplotlib import pyplot as plt
+from scipy.integrate import quad
 
 RIGHT_ANGLE = pi / 2
 
@@ -23,20 +24,18 @@ class PdfTest(unittest.TestCase):
         print(mu_angle, max_angle, angle_perturb, angle_1, angle_2)
         self.assertAlmostEqual(vmf_pdf(x1, mu, kappa), vmf_pdf(x2, mu, kappa), delta=0.01)
 
-    def test_monte_carlo_integration(self):
-        ITERATIONS = 10000
+    def test_quadrature(self):
         MU, KAPPA  = angle_to_vector(RIGHT_ANGLE / 2), 0.5
-        sum = 0
-        for i in range(ITERATIONS):
-            angle = np.random.uniform(0, 2*pi)
-            vector = angle_to_vector(angle)
-            sum += vmf_pdf(vector, MU, KAPPA)
-        print('Approximate integral: ', pi * (sum / ITERATIONS))
+        def vmf_pdf_angle(theta, mu, kappa):
+            x = angle_to_vector(theta)
+            return vmf_pdf(x, mu, kappa)
+        print('Approximate integral: ', quad(vmf_pdf_angle, 0, 2*pi, args=(MU, KAPPA)))
+
 
     def test_plot_pdf(self):
         mu_angle = np.random.uniform(0, RIGHT_ANGLE)
         mu = angle_to_vector(mu_angle)
-        kappa = 100
+        kappa = 2
         theta = np.arange(mu_angle-pi, mu_angle+pi, 0.1)
         V = [angle_to_vector(t) for t in theta]
         y = [vmf_pdf(v, mu, kappa) for v in V]
