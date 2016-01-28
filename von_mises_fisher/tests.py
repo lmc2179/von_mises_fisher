@@ -24,6 +24,15 @@ class PdfTest(unittest.TestCase):
         print(mu_angle, max_angle, angle_perturb, angle_1, angle_2)
         self.assertAlmostEqual(vmf_pdf(x1, mu, kappa), vmf_pdf(x2, mu, kappa), delta=0.01)
 
+    def test_3d_radial_symmetry(self):
+        kappa = 0.5
+        mu = np.array([1, 0, 0])
+        x1 = np.array([0, 1, 0])
+        x2 = np.array([0, 0, 1])
+        self.assertAlmostEqual(vmf_pdf(x1, mu, kappa), vmf_pdf(x2, mu, kappa), delta=0.01)
+        self.assertAlmostEqual(vmf_pdf(-x1, mu, kappa), vmf_pdf(-x2, mu, kappa), delta=0.01)
+        self.assertAlmostEqual(vmf_pdf(-x1, mu, kappa), vmf_pdf(x2, mu, kappa), delta=0.01)
+
     def test_quadrature(self):
         MU, KAPPA  = angle_to_vector(RIGHT_ANGLE / 2), 0.5
         def vmf_pdf_angle(theta, mu, kappa):
