@@ -1046,6 +1046,7 @@ table {
     <li class="set"><h3><a href="#header-functions">Functions</a></h3>
       
   <ul>
+    <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_mixture_mle">vmf_mixture_mle</a></li>
     <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_mle">vmf_mle</a></li>
     <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_pdf">vmf_pdf</a></li>
   </ul>
@@ -1072,6 +1073,8 @@ table {
     <div class="codehilite"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
 <span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">exp</span><span class="p">,</span> <span class="n">pi</span>
 <span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">iv</span>
+<span class="kn">import</span> <span class="nn">random</span>
+<span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
 
 <span class="k">def</span> <span class="nf">vmf_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -1091,6 +1094,8 @@ table {
 
 <span class="k">def</span> <span class="nf">vmf_mle</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the maximum likelihood estimate of the parameters for the vMF distribution on the data.</span>
+
 <span class="sd">    Parameters:</span>
 <span class="sd">        X: numpy array, matrix of observed unit vectors</span>
 <span class="sd">    Returns:</span>
@@ -1107,6 +1112,49 @@ table {
     <span class="n">R</span> <span class="o">=</span> <span class="n">sum_norm</span> <span class="o">/</span> <span class="n">n</span>
     <span class="n">mle_kappa</span> <span class="o">=</span> <span class="p">(</span><span class="n">R</span> <span class="o">*</span> <span class="p">(</span><span class="n">p</span> <span class="o">-</span> <span class="n">R</span><span class="o">**</span><span class="mi">2</span><span class="p">))</span> <span class="o">/</span> <span class="p">(</span><span class="mi">1</span> <span class="o">-</span> <span class="n">R</span><span class="o">**</span><span class="mi">2</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">centroid</span><span class="p">,</span> <span class="n">mle_kappa</span>
+
+<span class="k">def</span> <span class="nf">vmf_mixture_mle</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">iterations</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        X: The data on which to compute the MLE.</span>
+<span class="sd">        n: The number of components of the mixture</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        params: list of tuples, pairs of (mu, kappa) for each distribution.</span>
+<span class="sd">        mixing: list of floats which add to 1.0, the mixing coefficients for each distribution</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&#39;Fewer components than data points&#39;</span><span class="p">)</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">_get_initial_mixture_params</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">_assign_mle_Z</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">_get_mixture_mle_params</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">_assign_mle_Z</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+    <span class="n">Z_counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+    <span class="n">mixing</span> <span class="o">=</span> <span class="p">[</span><span class="n">Z_counter</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">Z_counter</span><span class="o">.</span><span class="n">keys</span><span class="p">())]</span>
+    <span class="k">return</span> <span class="n">params</span><span class="p">,</span> <span class="n">mixing</span>
+
+<span class="k">def</span> <span class="nf">_get_initial_mixture_params</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">indices</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)))</span>
+    <span class="n">random</span><span class="o">.</span><span class="n">shuffle</span><span class="p">(</span><span class="n">indices</span><span class="p">)</span>
+    <span class="n">initial_mu_indices</span> <span class="o">=</span> <span class="n">indices</span><span class="p">[:</span><span class="n">n</span><span class="p">]</span>
+    <span class="n">initial_mu_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">initial_mu_indices</span><span class="p">]</span>
+    <span class="k">return</span> <span class="p">[(</span><span class="n">mu</span><span class="p">,</span> <span class="mi">20</span><span class="p">)</span> <span class="k">for</span> <span class="n">mu</span> <span class="ow">in</span> <span class="n">initial_mu_values</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_assign_mle_Z</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">params</span><span class="p">):</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="p">:</span>
+        <span class="n">likelihoods</span> <span class="o">=</span> <span class="p">[</span><span class="n">vmf_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">params</span><span class="p">]</span>
+        <span class="n">Z</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">argmax</span><span class="p">(</span><span class="n">likelihoods</span><span class="p">))</span>
+    <span class="k">return</span> <span class="n">Z</span>
+
+<span class="k">def</span> <span class="nf">_get_mixture_mle_params</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">n</span><span class="p">):</span>
+    <span class="n">samples_by_mixture</span> <span class="o">=</span> <span class="p">[</span><span class="nb">list</span><span class="p">()</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n</span><span class="p">)]</span>
+    <span class="k">for</span> <span class="n">z</span><span class="p">,</span> <span class="n">x</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">Z</span><span class="p">,</span> <span class="n">X</span><span class="p">):</span>
+        <span class="n">samples_by_mixture</span><span class="p">[</span><span class="n">z</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">mle_params</span> <span class="o">=</span> <span class="p">[</span><span class="n">vmf_mle</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span> <span class="k">for</span> <span class="n">samples</span> <span class="ow">in</span> <span class="n">samples_by_mixture</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">mle_params</span>
 </pre></div>
 
   </div>
@@ -1135,6 +1183,53 @@ table {
     <h2 class="section-title" id="header-functions">Functions</h2>
       
   <div class="item">
+    <div class="name def" id="von_mises_fisher.von_mises_fisher.vmf_mixture_mle">
+    <p>def <span class="ident">vmf_mixture_mle</span>(</p><p>X, n, iterations)</p>
+    </div>
+    
+
+    
+  
+    <div class="desc"><p>Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.</p>
+<p>Parameters:
+    X: The data on which to compute the MLE.
+    n: The number of components of the mixture
+Returns:
+    params: list of tuples, pairs of (mu, kappa) for each distribution.
+    mixing: list of floats which add to 1.0, the mixing coefficients for each distribution</p></div>
+  <div class="source_cont">
+  <p class="source_link"><a href="javascript:void(0);" onclick="toggle('source-von_mises_fisher.von_mises_fisher.vmf_mixture_mle', this);">Show source &equiv;</a></p>
+  <div id="source-von_mises_fisher.von_mises_fisher.vmf_mixture_mle" class="source">
+    <div class="codehilite"><pre><span class="k">def</span> <span class="nf">vmf_mixture_mle</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">iterations</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        X: The data on which to compute the MLE.</span>
+<span class="sd">        n: The number of components of the mixture</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        params: list of tuples, pairs of (mu, kappa) for each distribution.</span>
+<span class="sd">        mixing: list of floats which add to 1.0, the mixing coefficients for each distribution</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">n</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">Exception</span><span class="p">(</span><span class="s">&#39;Fewer components than data points&#39;</span><span class="p">)</span>
+    <span class="n">params</span> <span class="o">=</span> <span class="n">_get_initial_mixture_params</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+    <span class="n">Z</span> <span class="o">=</span> <span class="n">_assign_mle_Z</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">iterations</span><span class="p">):</span>
+        <span class="n">params</span> <span class="o">=</span> <span class="n">_get_mixture_mle_params</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">Z</span><span class="p">,</span> <span class="n">n</span><span class="p">)</span>
+        <span class="n">Z</span> <span class="o">=</span> <span class="n">_assign_mle_Z</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">params</span><span class="p">)</span>
+    <span class="n">Z_counter</span> <span class="o">=</span> <span class="n">Counter</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span>
+    <span class="n">mixing</span> <span class="o">=</span> <span class="p">[</span><span class="n">Z_counter</span><span class="p">[</span><span class="n">k</span><span class="p">]</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">Z</span><span class="p">)</span> <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">Z_counter</span><span class="o">.</span><span class="n">keys</span><span class="p">())]</span>
+    <span class="k">return</span> <span class="n">params</span><span class="p">,</span> <span class="n">mixing</span>
+</pre></div>
+
+  </div>
+</div>
+
+  </div>
+  
+      
+  <div class="item">
     <div class="name def" id="von_mises_fisher.von_mises_fisher.vmf_mle">
     <p>def <span class="ident">vmf_mle</span>(</p><p>X)</p>
     </div>
@@ -1142,7 +1237,8 @@ table {
 
     
   
-    <div class="desc"><p>Parameters:
+    <div class="desc"><p>Calculate the maximum likelihood estimate of the parameters for the vMF distribution on the data.</p>
+<p>Parameters:
     X: numpy array, matrix of observed unit vectors
 Returns:
     mle_mu: MLE of mu calculated from the data
@@ -1153,6 +1249,8 @@ Returns:
   <div id="source-von_mises_fisher.von_mises_fisher.vmf_mle" class="source">
     <div class="codehilite"><pre><span class="k">def</span> <span class="nf">vmf_mle</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Calculate the maximum likelihood estimate of the parameters for the vMF distribution on the data.</span>
+
 <span class="sd">    Parameters:</span>
 <span class="sd">        X: numpy array, matrix of observed unit vectors</span>
 <span class="sd">    Returns:</span>
