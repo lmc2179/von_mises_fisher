@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from von_mises_fisher.von_mises_fisher import vmf_pdf, vmf_mle
+from von_mises_fisher.von_mises_fisher import vmf_pdf, vmf_mle, vmf_mixture_mle
 from math import cos, sin, acos, asin, sqrt, pi
 from matplotlib import pyplot as plt
 from scipy.integrate import quad
@@ -47,6 +47,13 @@ class PdfTest(unittest.TestCase):
         tight_mu, tight_kappa = vmf_mle(tight_pattern_data)
         self.assertAlmostEqual(np.dot(loose_mu, tight_mu), 1.0)
         self.assertGreater(tight_kappa, loose_kappa)
+
+    def test_mle_mixture(self):
+        loose_pattern_data = np.array([angle_to_vector(0), angle_to_vector(-pi/4), angle_to_vector(pi/4)])
+        tight_pattern_data = np.array([angle_to_vector(pi), angle_to_vector(pi-pi/4), angle_to_vector(pi+pi/4)])
+        X = np.vstack((loose_pattern_data, tight_pattern_data))
+        params = vmf_mixture_mle(X, 2, 100)
+        print('Mixture parameters: ', params)
 
     @unittest.skip
     def test_plot_pdf(self):

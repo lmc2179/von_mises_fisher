@@ -1,6 +1,8 @@
 import numpy as np
 from math import exp, pi
 from scipy.special import iv
+import random
+from collections import Counter
 
 def vmf_pdf(x, mu, kappa):
     """
@@ -20,6 +22,8 @@ def vmf_pdf(x, mu, kappa):
 
 def vmf_mle(X):
     """
+    Calculate the maximum likelihood estimate of the parameters for the vMF distribution on the data.
+
     Parameters:
         X: numpy array, matrix of observed unit vectors
     Returns:
@@ -36,3 +40,46 @@ def vmf_mle(X):
     R = sum_norm / n
     mle_kappa = (R * (p - R**2)) / (1 - R**2)
     return centroid, mle_kappa
+
+def vmf_mixture_mle(X, n, iterations):
+    """
+    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.
+
+    Parameters:
+        X: The data on which to compute the MLE.
+        n: The number of components of the mixture
+    Returns:
+        params: list of tuples, pairs of (mu, kappa) for each distribution.
+        mixing: list of floats which add to 1.0, the mixing coefficients for each distribution
+    """
+    if len(X) < n:
+        raise Exception('Fewer components than data points')
+    params = _get_initial_mixture_params(X, n)
+    Z = _assign_mle_Z(X, params)
+    for i in range(iterations):
+        params = _get_mixture_mle_params(X, Z, n)
+        Z = _assign_mle_Z(X, params)
+    Z_counter = Counter(Z)
+    mixing = [Z_counter[k] / len(Z) for k in sorted(Z_counter.keys())]
+    return params, mixing
+
+def _get_initial_mixture_params(X, n):
+    indices = list(range(len(X)))
+    random.shuffle(indices)
+    initial_mu_indices = indices[:n]
+    initial_mu_values = [X[i] for i in initial_mu_indices]
+    return [(mu, 20) for mu in initial_mu_values]
+
+def _assign_mle_Z(X, params):
+    Z = []
+    for x in X:
+        likelihoods = [vmf_pdf(x, *p) for p in params]
+        Z.append(np.argmax(likelihoods))
+    return Z
+
+def _get_mixture_mle_params(X, Z, n):
+    samples_by_mixture = [list() for i in range(n)]
+    for z, x in zip(Z, X):
+        samples_by_mixture[z].append(x)
+    mle_params = [vmf_mle(samples) for samples in samples_by_mixture]
+    return mle_params
