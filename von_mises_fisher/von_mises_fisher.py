@@ -1,5 +1,5 @@
 import numpy as np
-from math import exp, pi
+from math import exp, pi, log
 from scipy.special import iv
 import random
 from collections import Counter
@@ -15,10 +15,35 @@ def vmf_pdf(x, mu, kappa):
         float, value of VMF(x|mu, kappa)
     """
     p = len(x)
-    likelihood = exp(kappa * np.dot(mu, x))
-    normalization_numerator = kappa ** (0.5*p - 1)
-    normalization_denominator = (2 * pi) ** (0.5*p) * iv(0.5*p-1, kappa)
+    likelihood = _get_vmf_likelihood_term(x, mu, kappa)
+    normalization_numerator = _get_vmf_normalization_numerator(p, kappa)
+    normalization_denominator = _get_vmf_normalization_denom(p, kappa)
     return likelihood * (normalization_numerator / normalization_denominator)
+
+def vmf_log_pdf(x, mu, kappa):
+    """
+    The log pdf of the <a href=https://en.wikipedia.org/wiki/Von_Mises%E2%80%93Fisher_distribution>von Mises-Fisher distribution</a>.
+
+    Parameters:
+        mu: float, location parameter of the distribution. This is the mean and mode of the distribution.
+        kappa: positive float, scale parameter of the distribution. A larger value of kappa corresponds to lower variance.
+    Returns:
+        float, value of log VMF(x|mu, kappa)
+    """
+    p = len(x)
+    likelihood = _get_vmf_likelihood_term(x, mu, kappa)
+    normalization_numerator = _get_vmf_normalization_numerator(p, kappa)
+    normalization_denominator = _get_vmf_normalization_denom(p, kappa)
+    return log(likelihood) + log(normalization_numerator) - log(normalization_denominator)
+
+def _get_vmf_likelihood_term(x, mu, kappa):
+    return exp(kappa * np.dot(mu, x))
+
+def _get_vmf_normalization_numerator(p, kappa):
+    return kappa ** (0.5*p - 1)
+
+def _get_vmf_normalization_denom(p, kappa):
+    return (2 * pi) ** (0.5*p) * iv(0.5*p-1, kappa)
 
 def vmf_mle(X):
     """
