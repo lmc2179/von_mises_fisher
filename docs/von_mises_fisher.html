@@ -1046,6 +1046,9 @@ table {
     <li class="set"><h3><a href="#header-functions">Functions</a></h3>
       
   <ul>
+    <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.fit_vmf_mixture_BIC">fit_vmf_mixture_BIC</a></li>
+    <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_log_pdf">vmf_log_pdf</a></li>
+    <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_mixture_log_pdf">vmf_mixture_log_pdf</a></li>
     <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_mixture_mle">vmf_mixture_mle</a></li>
     <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_mle">vmf_mle</a></li>
     <li class="mono"><a href="#von_mises_fisher.von_mises_fisher.vmf_pdf">vmf_pdf</a></li>
@@ -1071,7 +1074,7 @@ table {
   <p class="source_link"><a href="javascript:void(0);" onclick="toggle('source-von_mises_fisher.von_mises_fisher', this);">Show source &equiv;</a></p>
   <div id="source-von_mises_fisher.von_mises_fisher" class="source">
     <div class="codehilite"><pre><span class="kn">import</span> <span class="nn">numpy</span> <span class="kn">as</span> <span class="nn">np</span>
-<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">exp</span><span class="p">,</span> <span class="n">pi</span>
+<span class="kn">from</span> <span class="nn">math</span> <span class="kn">import</span> <span class="n">exp</span><span class="p">,</span> <span class="n">pi</span><span class="p">,</span> <span class="n">log</span>
 <span class="kn">from</span> <span class="nn">scipy.special</span> <span class="kn">import</span> <span class="n">iv</span>
 <span class="kn">import</span> <span class="nn">random</span>
 <span class="kn">from</span> <span class="nn">collections</span> <span class="kn">import</span> <span class="n">Counter</span>
@@ -1087,10 +1090,39 @@ table {
 <span class="sd">        float, value of VMF(x|mu, kappa)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
-    <span class="n">normalization_numerator</span> <span class="o">=</span> <span class="n">kappa</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">normalization_denominator</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="o">*</span> <span class="n">iv</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">_get_vmf_likelihood_term</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_numerator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_numerator</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_denominator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_denom</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">likelihood</span> <span class="o">*</span> <span class="p">(</span><span class="n">normalization_numerator</span> <span class="o">/</span> <span class="n">normalization_denominator</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">vmf_log_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The log pdf of the &lt;a href=https://en.wikipedia.org/wiki/Von_Mises%E2%80%93Fisher_distribution&gt;von Mises-Fisher distribution&lt;/a&gt;.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mu: float, location parameter of the distribution. This is the mean and mode of the distribution.</span>
+<span class="sd">        kappa: positive float, scale parameter of the distribution. A larger value of kappa corresponds to lower variance.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        float, value of log VMF(x|mu, kappa)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">_get_vmf_likelihood_term</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_numerator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_numerator</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_denominator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_denom</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">log</span><span class="p">(</span><span class="n">likelihood</span><span class="p">)</span> <span class="o">+</span> <span class="n">log</span><span class="p">(</span><span class="n">normalization_numerator</span><span class="p">)</span> <span class="o">-</span> <span class="n">log</span><span class="p">(</span><span class="n">normalization_denominator</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_get_vmf_likelihood_term</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">exp</span><span class="p">(</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">_get_vmf_normalization_numerator</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">kappa</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_get_vmf_normalization_denom</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="o">*</span> <span class="n">iv</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">vmf_mixture_log_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">estimated_params</span><span class="p">,</span> <span class="n">mixing</span><span class="p">):</span>
+    <span class="n">pdf_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">vmf_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">estimated_params</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">log</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="n">v</span> <span class="o">*</span> <span class="n">m</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span><span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pdf_values</span><span class="p">,</span> <span class="n">mixing</span><span class="p">)]))</span>
 
 <span class="k">def</span> <span class="nf">vmf_mle</span><span class="p">(</span><span class="n">X</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -1115,11 +1147,12 @@ table {
 
 <span class="k">def</span> <span class="nf">vmf_mixture_mle</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">iterations</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.</span>
+<span class="sd">    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data using the EM algorithm.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        X: The data on which to compute the MLE.</span>
 <span class="sd">        n: The number of components of the mixture</span>
+<span class="sd">        iterations: The number of iterations to run the EM algorithm.</span>
 <span class="sd">    Returns:</span>
 <span class="sd">        params: list of tuples, pairs of (mu, kappa) for each distribution.</span>
 <span class="sd">        mixing: list of floats which add to 1.0, the mixing coefficients for each distribution</span>
@@ -1155,6 +1188,35 @@ table {
         <span class="n">samples_by_mixture</span><span class="p">[</span><span class="n">z</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
     <span class="n">mle_params</span> <span class="o">=</span> <span class="p">[</span><span class="n">vmf_mle</span><span class="p">(</span><span class="n">samples</span><span class="p">)</span> <span class="k">for</span> <span class="n">samples</span> <span class="ow">in</span> <span class="n">samples_by_mixture</span><span class="p">]</span>
     <span class="k">return</span> <span class="n">mle_params</span>
+
+<span class="k">def</span> <span class="nf">fit_vmf_mixture_BIC</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">possible_component_counts</span><span class="p">,</span> <span class="n">em_iterations</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fit a number of mixture distributions with the EM algorithm, and select the optimal model using the Bayesian Information Criterion.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        X: The data used to fit the models</span>
+<span class="sd">        possible_component_counts: iterable of integers; each integer will be used to fit a model with that many components. For example, if this value is [2, 3], a model with either two or three components will be returned</span>
+<span class="sd">        em_iterations: Number of iterations to run the EM algorithm when computing the MLE for each component.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        params: The parameters of the optimal mixture model under the BIC</span>
+<span class="sd">        best_component_choice: This will be one of the elements of possible_component_counts, corresponding to the optimal model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">BICs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">mle_params</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">n_components</span> <span class="ow">in</span> <span class="n">possible_component_counts</span><span class="p">:</span>
+        <span class="n">score</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">_evaluate_model_BIC</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n_components</span><span class="p">,</span> <span class="n">em_iterations</span><span class="p">)</span>
+        <span class="n">BICs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">score</span><span class="p">)</span>
+        <span class="n">mle_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">best_model_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">BICs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mle_params</span><span class="p">[</span><span class="n">best_model_index</span><span class="p">],</span> <span class="n">possible_component_counts</span><span class="p">[</span><span class="n">best_model_index</span><span class="p">]</span>
+
+<span class="k">def</span> <span class="nf">_evaluate_model_BIC</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n_components</span><span class="p">,</span> <span class="n">em_iterations</span><span class="p">):</span>
+    <span class="n">estimated_params</span><span class="p">,</span> <span class="n">mixing</span> <span class="o">=</span> <span class="n">vmf_mixture_mle</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n_components</span><span class="p">,</span> <span class="n">em_iterations</span><span class="p">)</span>
+    <span class="n">ln_L</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">([</span><span class="n">vmf_mixture_log_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">estimated_params</span><span class="p">,</span> <span class="n">mixing</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">X</span><span class="p">])</span>
+    <span class="n">k</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">n_components</span>
+    <span class="n">n</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">X</span><span class="p">)</span>
+    <span class="n">score</span> <span class="o">=</span> <span class="o">-</span><span class="mi">2</span> <span class="o">*</span> <span class="n">ln_L</span> <span class="o">+</span> <span class="n">k</span> <span class="o">*</span> <span class="n">log</span><span class="p">(</span><span class="n">n</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">score</span><span class="p">,</span> <span class="n">estimated_params</span>
 </pre></div>
 
   </div>
@@ -1183,6 +1245,115 @@ table {
     <h2 class="section-title" id="header-functions">Functions</h2>
       
   <div class="item">
+    <div class="name def" id="von_mises_fisher.von_mises_fisher.fit_vmf_mixture_BIC">
+    <p>def <span class="ident">fit_vmf_mixture_BIC</span>(</p><p>X, possible_component_counts, em_iterations)</p>
+    </div>
+    
+
+    
+  
+    <div class="desc"><p>Fit a number of mixture distributions with the EM algorithm, and select the optimal model using the Bayesian Information Criterion.</p>
+<p>Parameters:
+    X: The data used to fit the models
+    possible_component_counts: iterable of integers; each integer will be used to fit a model with that many components. For example, if this value is [2, 3], a model with either two or three components will be returned
+    em_iterations: Number of iterations to run the EM algorithm when computing the MLE for each component.
+Returns:
+    params: The parameters of the optimal mixture model under the BIC
+    best_component_choice: This will be one of the elements of possible_component_counts, corresponding to the optimal model</p></div>
+  <div class="source_cont">
+  <p class="source_link"><a href="javascript:void(0);" onclick="toggle('source-von_mises_fisher.von_mises_fisher.fit_vmf_mixture_BIC', this);">Show source &equiv;</a></p>
+  <div id="source-von_mises_fisher.von_mises_fisher.fit_vmf_mixture_BIC" class="source">
+    <div class="codehilite"><pre><span class="k">def</span> <span class="nf">fit_vmf_mixture_BIC</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">possible_component_counts</span><span class="p">,</span> <span class="n">em_iterations</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Fit a number of mixture distributions with the EM algorithm, and select the optimal model using the Bayesian Information Criterion.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        X: The data used to fit the models</span>
+<span class="sd">        possible_component_counts: iterable of integers; each integer will be used to fit a model with that many components. For example, if this value is [2, 3], a model with either two or three components will be returned</span>
+<span class="sd">        em_iterations: Number of iterations to run the EM algorithm when computing the MLE for each component.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        params: The parameters of the optimal mixture model under the BIC</span>
+<span class="sd">        best_component_choice: This will be one of the elements of possible_component_counts, corresponding to the optimal model</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">BICs</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">mle_params</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">for</span> <span class="n">n_components</span> <span class="ow">in</span> <span class="n">possible_component_counts</span><span class="p">:</span>
+        <span class="n">score</span><span class="p">,</span> <span class="n">params</span> <span class="o">=</span> <span class="n">_evaluate_model_BIC</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n_components</span><span class="p">,</span> <span class="n">em_iterations</span><span class="p">)</span>
+        <span class="n">BICs</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">score</span><span class="p">)</span>
+        <span class="n">mle_params</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">params</span><span class="p">)</span>
+    <span class="n">best_model_index</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argmin</span><span class="p">(</span><span class="n">BICs</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">mle_params</span><span class="p">[</span><span class="n">best_model_index</span><span class="p">],</span> <span class="n">possible_component_counts</span><span class="p">[</span><span class="n">best_model_index</span><span class="p">]</span>
+</pre></div>
+
+  </div>
+</div>
+
+  </div>
+  
+      
+  <div class="item">
+    <div class="name def" id="von_mises_fisher.von_mises_fisher.vmf_log_pdf">
+    <p>def <span class="ident">vmf_log_pdf</span>(</p><p>x, mu, kappa)</p>
+    </div>
+    
+
+    
+  
+    <div class="desc"><p>The log pdf of the <a href=https://en.wikipedia.org/wiki/Von_Mises%E2%80%93Fisher_distribution>von Mises-Fisher distribution</a>.</p>
+<p>Parameters:
+    mu: float, location parameter of the distribution. This is the mean and mode of the distribution.
+    kappa: positive float, scale parameter of the distribution. A larger value of kappa corresponds to lower variance.
+Returns:
+    float, value of log VMF(x|mu, kappa)</p></div>
+  <div class="source_cont">
+  <p class="source_link"><a href="javascript:void(0);" onclick="toggle('source-von_mises_fisher.von_mises_fisher.vmf_log_pdf', this);">Show source &equiv;</a></p>
+  <div id="source-von_mises_fisher.von_mises_fisher.vmf_log_pdf" class="source">
+    <div class="codehilite"><pre><span class="k">def</span> <span class="nf">vmf_log_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The log pdf of the &lt;a href=https://en.wikipedia.org/wiki/Von_Mises%E2%80%93Fisher_distribution&gt;von Mises-Fisher distribution&lt;/a&gt;.</span>
+
+<span class="sd">    Parameters:</span>
+<span class="sd">        mu: float, location parameter of the distribution. This is the mean and mode of the distribution.</span>
+<span class="sd">        kappa: positive float, scale parameter of the distribution. A larger value of kappa corresponds to lower variance.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        float, value of log VMF(x|mu, kappa)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">_get_vmf_likelihood_term</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_numerator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_numerator</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_denominator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_denom</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">log</span><span class="p">(</span><span class="n">likelihood</span><span class="p">)</span> <span class="o">+</span> <span class="n">log</span><span class="p">(</span><span class="n">normalization_numerator</span><span class="p">)</span> <span class="o">-</span> <span class="n">log</span><span class="p">(</span><span class="n">normalization_denominator</span><span class="p">)</span>
+</pre></div>
+
+  </div>
+</div>
+
+  </div>
+  
+      
+  <div class="item">
+    <div class="name def" id="von_mises_fisher.von_mises_fisher.vmf_mixture_log_pdf">
+    <p>def <span class="ident">vmf_mixture_log_pdf</span>(</p><p>x, estimated_params, mixing)</p>
+    </div>
+    
+
+    
+  
+  <div class="source_cont">
+  <p class="source_link"><a href="javascript:void(0);" onclick="toggle('source-von_mises_fisher.von_mises_fisher.vmf_mixture_log_pdf', this);">Show source &equiv;</a></p>
+  <div id="source-von_mises_fisher.von_mises_fisher.vmf_mixture_log_pdf" class="source">
+    <div class="codehilite"><pre><span class="k">def</span> <span class="nf">vmf_mixture_log_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">estimated_params</span><span class="p">,</span> <span class="n">mixing</span><span class="p">):</span>
+    <span class="n">pdf_values</span> <span class="o">=</span> <span class="p">[</span><span class="n">vmf_pdf</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">estimated_params</span><span class="p">]</span>
+    <span class="k">return</span> <span class="n">log</span><span class="p">(</span><span class="nb">sum</span><span class="p">([</span><span class="n">v</span> <span class="o">*</span> <span class="n">m</span> <span class="k">for</span> <span class="n">v</span><span class="p">,</span><span class="n">m</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">pdf_values</span><span class="p">,</span> <span class="n">mixing</span><span class="p">)]))</span>
+</pre></div>
+
+  </div>
+</div>
+
+  </div>
+  
+      
+  <div class="item">
     <div class="name def" id="von_mises_fisher.von_mises_fisher.vmf_mixture_mle">
     <p>def <span class="ident">vmf_mixture_mle</span>(</p><p>X, n, iterations)</p>
     </div>
@@ -1190,10 +1361,11 @@ table {
 
     
   
-    <div class="desc"><p>Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.</p>
+    <div class="desc"><p>Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data using the EM algorithm.</p>
 <p>Parameters:
     X: The data on which to compute the MLE.
     n: The number of components of the mixture
+    iterations: The number of iterations to run the EM algorithm.
 Returns:
     params: list of tuples, pairs of (mu, kappa) for each distribution.
     mixing: list of floats which add to 1.0, the mixing coefficients for each distribution</p></div>
@@ -1202,11 +1374,12 @@ Returns:
   <div id="source-von_mises_fisher.von_mises_fisher.vmf_mixture_mle" class="source">
     <div class="codehilite"><pre><span class="k">def</span> <span class="nf">vmf_mixture_mle</span><span class="p">(</span><span class="n">X</span><span class="p">,</span> <span class="n">n</span><span class="p">,</span> <span class="n">iterations</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.</span>
+<span class="sd">    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data using the EM algorithm.</span>
 
 <span class="sd">    Parameters:</span>
 <span class="sd">        X: The data on which to compute the MLE.</span>
 <span class="sd">        n: The number of components of the mixture</span>
+<span class="sd">        iterations: The number of iterations to run the EM algorithm.</span>
 <span class="sd">    Returns:</span>
 <span class="sd">        params: list of tuples, pairs of (mu, kappa) for each distribution.</span>
 <span class="sd">        mixing: list of floats which add to 1.0, the mixing coefficients for each distribution</span>
@@ -1303,9 +1476,9 @@ Returns:
 <span class="sd">        float, value of VMF(x|mu, kappa)</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">p</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
-    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">exp</span><span class="p">(</span><span class="n">kappa</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">dot</span><span class="p">(</span><span class="n">mu</span><span class="p">,</span> <span class="n">x</span><span class="p">))</span>
-    <span class="n">normalization_numerator</span> <span class="o">=</span> <span class="n">kappa</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">normalization_denominator</span> <span class="o">=</span> <span class="p">(</span><span class="mi">2</span> <span class="o">*</span> <span class="n">pi</span><span class="p">)</span> <span class="o">**</span> <span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span><span class="p">)</span> <span class="o">*</span> <span class="n">iv</span><span class="p">(</span><span class="mf">0.5</span><span class="o">*</span><span class="n">p</span><span class="o">-</span><span class="mi">1</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">likelihood</span> <span class="o">=</span> <span class="n">_get_vmf_likelihood_term</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">mu</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_numerator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_numerator</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
+    <span class="n">normalization_denominator</span> <span class="o">=</span> <span class="n">_get_vmf_normalization_denom</span><span class="p">(</span><span class="n">p</span><span class="p">,</span> <span class="n">kappa</span><span class="p">)</span>
     <span class="k">return</span> <span class="n">likelihood</span> <span class="o">*</span> <span class="p">(</span><span class="n">normalization_numerator</span> <span class="o">/</span> <span class="n">normalization_denominator</span><span class="p">)</span>
 </pre></div>
 
