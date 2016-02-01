@@ -45,6 +45,10 @@ def _get_vmf_normalization_numerator(p, kappa):
 def _get_vmf_normalization_denom(p, kappa):
     return (2 * pi) ** (0.5*p) * iv(0.5*p-1, kappa)
 
+def vmf_mixture_log_pdf(x, estimated_params, mixing):
+    pdf_values = [vmf_pdf(x, *p) for p in estimated_params]
+    return log(sum([v * m for v,m in zip(pdf_values, mixing)]))
+
 def vmf_mle(X):
     """
     Calculate the maximum likelihood estimate of the parameters for the vMF distribution on the data.
@@ -68,11 +72,12 @@ def vmf_mle(X):
 
 def vmf_mixture_mle(X, n, iterations):
     """
-    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data.
+    Calculate the maximum likelihood estimate of a mixture of von Mises-Fisher distributions on your data using the EM algorithm.
 
     Parameters:
         X: The data on which to compute the MLE.
         n: The number of components of the mixture
+        iterations: The number of iterations to run the EM algorithm.
     Returns:
         params: list of tuples, pairs of (mu, kappa) for each distribution.
         mixing: list of floats which add to 1.0, the mixing coefficients for each distribution
@@ -108,3 +113,32 @@ def _get_mixture_mle_params(X, Z, n):
         samples_by_mixture[z].append(x)
     mle_params = [vmf_mle(samples) for samples in samples_by_mixture]
     return mle_params
+
+def fit_vmf_mixture_BIC(X, possible_component_counts, em_iterations):
+    """
+    Fit a number of mixture distributions with the EM algorithm, and select the optimal model using the Bayesian Information Criterion.
+
+    Parameters:
+        X: The data used to fit the models
+        possible_component_counts: iterable of integers; each integer will be used to fit a model with that many components. For example, if this value is [2, 3], a model with either two or three components will be returned
+        em_iterations: Number of iterations to run the EM algorithm when computing the MLE for each component.
+    Returns:
+        params: The parameters of the optimal mixture model under the BIC
+        best_component_choice: This will be one of the elements of possible_component_counts, corresponding to the optimal model
+    """
+    BICs = []
+    mle_params = []
+    for n_components in possible_component_counts:
+        score, params = _evaluate_model_BIC(X, n_components, em_iterations)
+        BICs.append(score)
+        mle_params.append(params)
+    best_model_index = np.argmin(BICs)
+    return mle_params[best_model_index], possible_component_counts[best_model_index]
+
+def _evaluate_model_BIC(X, n_components, em_iterations):
+    estimated_params, mixing = vmf_mixture_mle(X, n_components, em_iterations)
+    ln_L = sum([vmf_mixture_log_pdf(x, estimated_params, mixing) for x in X])
+    k = 2 * n_components
+    n = len(X)
+    score = -2 * ln_L + k * log(n)
+    return score, estimated_params

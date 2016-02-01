@@ -1,6 +1,6 @@
 import unittest
 import numpy as np
-from von_mises_fisher.von_mises_fisher import vmf_pdf, vmf_mle, vmf_mixture_mle, vmf_log_pdf
+from von_mises_fisher.von_mises_fisher import vmf_pdf, vmf_mle, vmf_mixture_mle, vmf_log_pdf, fit_vmf_mixture_BIC
 from math import cos, sin, acos, asin, sqrt, pi
 from matplotlib import pyplot as plt
 from scipy.integrate import quad
@@ -76,6 +76,15 @@ class PdfTest(unittest.TestCase):
         X = np.vstack((loose_pattern_data, tight_pattern_data))
         params = vmf_mixture_mle(X, 2, 100)
         print('Mixture parameters: ', params)
+
+    def test_mle_mixture_BIC(self):
+        loose_pattern_data = np.array([angle_to_vector(0), angle_to_vector(-pi/4), angle_to_vector(pi/4)])
+        tight_pattern_data = np.array([angle_to_vector(pi), angle_to_vector(pi-pi/4), angle_to_vector(pi+pi/4)])
+        sub_stacks = tuple([loose_pattern_data, tight_pattern_data]*10)
+        X = np.vstack(sub_stacks)
+        params, optimal_mixture_components = fit_vmf_mixture_BIC(X, [1,2], 100)
+        print('BIC Mixture parameters: ', params)
+        self.assertEqual(optimal_mixture_components, 2)
 
     @unittest.skip
     def test_plot_pdf(self):
