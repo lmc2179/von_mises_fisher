@@ -4,6 +4,8 @@ from scipy.special import iv
 import random
 from collections import Counter
 
+__all__ = ['vmf_mle', 'vmf_pdf', 'vmf_log_pdf', 'vmf_mixture_log_pdf', 'vmf_mixture_mle', 'fit_vmf_mixture_BIC']
+
 def vmf_pdf(x, mu, kappa):
     """
     The pdf of the <a href=https://en.wikipedia.org/wiki/Von_Mises%E2%80%93Fisher_distribution>von Mises-Fisher distribution</a>.
