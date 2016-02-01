@@ -4,7 +4,7 @@ setup(
   name = 'von_mises_fisher',
   packages = find_packages(),
   version = '0.1',
-  description = 'Model your data with the Von Mises-Fisher distribution in Python. A quick and easy library for hypersphere afficionados everywhere.',
+  description = 'Model your data with the n-dimensional Von Mises-Fisher distribution',
   author = 'Louis Cialdella',
   author_email = 'louiscialdella@gmail.com',
   classifiers = ['Programming Language :: Python :: 3 :: Only'],
